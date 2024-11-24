@@ -1,10 +1,16 @@
 use iced::{
     time,
     widget::{button, container, row, text, Column},
+    window,
     Alignment::Center,
     Element, Length, Subscription,
 };
-use std::time::{Duration, Instant};
+use rodio::{self, Source};
+use std::fs::File;
+use std::{
+    io::BufReader,
+    time::{Duration, Instant},
+};
 
 const WORK_LENGTH: u32 = 1500;
 const BREAK_LENGTH: u32 = 300;
@@ -66,11 +72,10 @@ impl PomodoroTimer {
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
-        let tick = match self.is_running {
-            true => time::every(Duration::from_millis(10)).map(Message::Tick),
+        match self.is_running {
+            true => time::every(Duration::from_millis(100)).map(Message::Tick),
             false => Subscription::none(),
-        };
-        tick
+        }
     }
 
     pub fn update(&mut self, message: Message) {
@@ -99,6 +104,25 @@ impl PomodoroTimer {
                         BREAK_LENGTH
                     };
                     self.is_running = false;
+                    // Play a sound
+                    if let Err(err) = rodio::OutputStream::try_default() {
+                        println!("Error initializing sound: {}", err);
+                    } else {
+                        let (_stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
+                        let file = BufReader::new(
+                            File::open(concat!(
+                                env!("CARGO_MANIFEST_DIR"),
+                                "/assets/audio/alarm.mp3"
+                            ))
+                            .unwrap(),
+                        );
+                        let source = rodio::Decoder::new(file).unwrap();
+                        let stream_handle_clone = stream_handle.clone();
+                        std::thread::spawn(move || {
+                            let _ = stream_handle_clone.play_raw(source.convert_samples());
+                            std::thread::sleep(std::time::Duration::from_secs(6));
+                        });
+                    }
                 }
             }
             Message::StartStop => {
@@ -132,8 +156,21 @@ impl Default for PomodoroTimer {
 }
 
 fn main() -> iced::Result {
+    // Add a logo for this app
     iced::application("Pomodoro Timer", PomodoroTimer::update, PomodoroTimer::view)
         .subscription(PomodoroTimer::subscription)
         .theme(PomodoroTimer::theme)
+        .window(window::Settings {
+            resizable: false,
+            level: window::Level::Normal,
+            icon: Some(
+                window::icon::from_file(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/assets/images/icon.png"
+                ))
+                .expect("icon file should be reachable and in ICO file format"),
+            ),
+            ..Default::default()
+        })
         .run()
 }
