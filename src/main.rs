@@ -5,11 +5,8 @@ use iced::{
     Alignment::Center,
     Element, Length, Subscription,
 };
-use rodio::{Decoder, Sink};
+use rodio::{Sink, Source};
 use std::{
-    fs::File,
-    io::BufReader,
-    path::PathBuf,
     sync::mpsc::{self, Sender},
     thread,
     time::{Duration, Instant},
@@ -43,7 +40,7 @@ pub enum Message {
 
 #[derive(Debug, Clone)]
 enum AudioCommand {
-    Play(PathBuf),
+    Alarm,
     Stop,
 }
 
@@ -137,9 +134,8 @@ impl PomodoroTimer {
                     if let Err(err) = rodio::OutputStream::try_default() {
                         println!("Error initializing sound: {}", err);
                     } else {
-                        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/audio/alarm.mp3");
                         self.audio_sender
-                            .send(AudioCommand::Play(PathBuf::from(path)))
+                            .send(AudioCommand::Alarm)
                             .expect("Could not send audio command");
                     }
                 }
@@ -182,12 +178,25 @@ impl Default for PomodoroTimer {
 
 fn process_audio_command(command: AudioCommand, sink: &Sink) {
     match command {
-        AudioCommand::Play(path) => {
-            if let Ok(file) = File::open(path) {
-                if let Ok(source) = Decoder::new(BufReader::new(file)) {
-                    sink.append(source);
-                }
-            }
+        AudioCommand::Alarm => {
+            let (_stream, stream_handle) = rodio::OutputStream::try_default().unwrap();
+            let source = rodio::source::SineWave::new(240.0)
+                .take_duration(Duration::from_millis(500))
+                .amplify(0.20);
+            stream_handle.play_raw(source.convert_samples()).unwrap();
+            std::thread::sleep(Duration::from_secs(1));
+
+            let source = rodio::source::SineWave::new(340.0)
+                .take_duration(Duration::from_millis(500))
+                .amplify(0.20);
+            stream_handle.play_raw(source.convert_samples()).unwrap();
+            std::thread::sleep(Duration::from_secs(1));
+
+            let source = rodio::source::SineWave::new(440.0)
+                .take_duration(Duration::from_millis(500))
+                .amplify(0.20);
+            stream_handle.play_raw(source.convert_samples()).unwrap();
+            std::thread::sleep(Duration::from_secs(3));
         }
         AudioCommand::Stop => {
             sink.stop();
@@ -201,7 +210,8 @@ fn main() -> iced::Result {
         .subscription(PomodoroTimer::subscription)
         .theme(PomodoroTimer::theme)
         .window(window::Settings {
-            resizable: false,
+            resizable: true,
+            decorations: true,
             level: window::Level::Normal,
             icon: Some(
                 window::icon::from_file(concat!(
