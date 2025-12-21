@@ -1,9 +1,8 @@
 use iced::{
-    time,
-    widget::{button, container, row, text, Column},
-    window,
     Alignment::Center,
-    Element, Length, Subscription,
+    Element, Length, Subscription, time,
+    widget::{Column, button, container, row, text},
+    window,
 };
 use rodio::{Sink, Source};
 use std::{
@@ -69,7 +68,7 @@ impl PomodoroTimer {
         }
     }
 
-    pub fn view(&self) -> Element<Message> {
+    pub fn view(&self) -> Element<'_, Message> {
         let start_stop_button = button(if self.is_running {
             "Pause"
         } else if self.started {
@@ -164,10 +163,6 @@ impl PomodoroTimer {
             }
         }
     }
-
-    pub fn theme(&self) -> iced::Theme {
-        iced::Theme::CatppuccinLatte
-    }
 }
 
 impl Default for PomodoroTimer {
@@ -206,21 +201,25 @@ fn process_audio_command(command: AudioCommand, sink: &Sink) {
 
 fn main() -> iced::Result {
     // Add a logo for this app
-    iced::application("Pomodoro Timer", PomodoroTimer::update, PomodoroTimer::view)
-        .subscription(PomodoroTimer::subscription)
-        .theme(PomodoroTimer::theme)
-        .window(window::Settings {
-            resizable: true,
-            decorations: true,
-            level: window::Level::Normal,
-            icon: Some(
-                window::icon::from_file(concat!(
-                    env!("CARGO_MANIFEST_DIR"),
-                    "/assets/images/icon.png"
-                ))
-                .expect("icon file should be reachable and in ICO file format"),
-            ),
-            ..Default::default()
-        })
-        .run()
+    iced::application(
+        PomodoroTimer::new,
+        PomodoroTimer::update,
+        PomodoroTimer::view,
+    )
+    .title("Pomodoro Timer")
+    .subscription(PomodoroTimer::subscription)
+    .theme(iced::Theme::CatppuccinLatte)
+    .window(window::Settings {
+        resizable: false,
+        level: window::Level::Normal,
+        icon: Some(
+            window::icon::from_file(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/assets/images/icon.png"
+            ))
+            .expect("icon file should be reachable and in ICO file format"),
+        ),
+        ..Default::default()
+    })
+    .run()
 }
