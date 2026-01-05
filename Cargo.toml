@@ -7,3 +7,4 @@ edition = "2024"
 iced = { version = "0.14.0", features = ["tokio", "wgpu", "image"] }
 rodio = "0.20.1"
 tokio = { version = "1", features = ["full"] }
+rusqlite = { version = "0.32.1", features = ["bundled"] }
