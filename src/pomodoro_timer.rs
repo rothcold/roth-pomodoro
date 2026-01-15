@@ -1,8 +1,8 @@
 use crate::settings::{Screen, Settings, SettingsDraft};
 use iced::{
     Alignment::Center,
-    Element, Length, Subscription, time,
-    widget::{Column, button, container, row, text, text_input},
+    Background, Border, Color, Element, Length, Subscription, Theme, time,
+    widget::{Column, button, container, row, text, text_input, tooltip},
 };
 use rodio::{Sink, Source};
 use std::{
@@ -109,6 +109,45 @@ impl PomodoroTimer {
             "Break time - relax!".to_string()
         };
 
+        // Top-right utility buttons (icon-only with tooltips)
+        let reset_button = tooltip(
+            button(text("↻").size(20))
+                .padding(10)
+                .style(transparent_button_style)
+                .on_press(Message::Reset),
+            "Reset",
+            tooltip::Position::Bottom,
+        );
+
+        let reset_counter_button = tooltip(
+            button(text("⟲").size(20))
+                .padding(10)
+                .style(transparent_button_style)
+                .on_press(Message::ResetPomoCounter),
+            "Reset Count",
+            tooltip::Position::Bottom,
+        );
+
+        let settings_button = tooltip(
+            button(text("⚙").size(20))
+                .padding(10)
+                .style(transparent_button_style)
+                .on_press(Message::OpenSettings),
+            "Settings",
+            tooltip::Position::Bottom,
+        );
+
+        let top_right_buttons =
+            row![reset_button, reset_counter_button, settings_button].spacing(10);
+
+        // Top bar with buttons aligned to the right
+        let top_bar = row![
+            container(text("")).width(Length::Fill), // Spacer to push buttons right
+            top_right_buttons
+        ]
+        .padding(10)
+        .width(Length::Fill);
+
         // Period type header
         let period_header = text(period_text).size(32).color(period_color);
 
@@ -128,7 +167,7 @@ impl PomodoroTimer {
             .push(text(progress_text).size(16))
             .push(text(format!("✓ Completed: {}", self.completed_pomodoros)).size(18));
 
-        // Styled buttons with better visual hierarchy
+        // Large centered start/stop button
         let start_stop_button = button(
             text(if self.is_running {
                 "⏸ Pause"
@@ -137,37 +176,33 @@ impl PomodoroTimer {
             } else {
                 "▶ Start"
             })
-            .size(18),
+            .size(28),
         )
-        .padding([12, 24]);
+        .padding([20, 40])
+        .style(transparent_button_style)
+        .on_press(Message::StartStop);
 
-        let reset_button = button(text("↻ Reset").size(16)).padding([10, 20]);
-
-        let reset_counter_button = button(text("⟲ Reset Count").size(16)).padding([10, 20]);
-
-        let settings_button = button(text("⚙ Settings").size(16)).padding([10, 20]);
-
-        // Button row with better spacing
-        let buttons = row![
-            start_stop_button.on_press(Message::StartStop),
-            reset_button.on_press(Message::Reset),
-            reset_counter_button.on_press(Message::ResetPomoCounter),
-            settings_button.on_press(Message::OpenSettings)
-        ]
-        .spacing(15);
-
-        // Main column with improved spacing and hierarchy
-        let column = Column::new()
+        // Center content column
+        let center_content = Column::new()
             .align_x(Center)
-            .spacing(20)
-            .padding(40)
+            .spacing(30)
             .push(period_header)
             .push(timer_display)
             .push(progress_info)
-            .push(text("").size(10)) // Spacer
-            .push(buttons);
+            .push(text("").size(20)) // Spacer
+            .push(start_stop_button);
 
-        container(column).center(Length::Fill).into()
+        // Main column with top bar and centered content
+        let main_column = Column::new().push(top_bar).push(
+            container(center_content)
+                .center(Length::Fill)
+                .height(Length::Fill),
+        );
+
+        container(main_column)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .into()
     }
 
     fn view_settings(&self) -> Element<'_, Message> {
@@ -218,9 +253,11 @@ impl PomodoroTimer {
         // Action buttons with distinct styling
         let actions = row![
             button(text("✓ Save").size(18))
+                .style(transparent_button_style)
                 .on_press(Message::SaveSettings)
                 .padding([12, 24]),
             button(text("✕ Cancel").size(18))
+                .style(transparent_button_style)
                 .on_press(Message::CloseSettings)
                 .padding([12, 24])
         ]
@@ -370,6 +407,31 @@ impl PomodoroTimer {
 impl Default for PomodoroTimer {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+fn transparent_button_style(_theme: &Theme, status: button::Status) -> button::Style {
+    let base_style = button::Style {
+        background: Some(Background::Color(Color::from_rgba(0.024, 0.58, 0.58, 1.0))),
+        border: Border {
+            color: Color::from_rgba(0.024, 0.58, 0.58, 1.0),
+            width: 0.0,
+            radius: 4.0.into(),
+        },
+        text_color: Color::from_rgb(0.3, 0.3, 0.3),
+        ..Default::default()
+    };
+
+    match status {
+        button::Status::Hovered => button::Style {
+            background: Some(Background::Color(Color::from_rgba(0.024, 0.48, 0.48, 1.0))),
+            ..base_style
+        },
+        button::Status::Pressed => button::Style {
+            background: Some(Background::Color(Color::from_rgba(0.024, 0.42, 0.42, 1.0))),
+            ..base_style
+        },
+        _ => base_style,
     }
 }
 
